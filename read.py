@@ -21,10 +21,10 @@ class Parser(object):
 				f = open(filename, 'rb')
 				self.filedata = f.read()
 				f.close()
-			
+
 			except IOError as e:
 				pass
-		
+
 	def read(self, fmt, offset):
 		if self.filedata is None:
 			return None
@@ -32,7 +32,7 @@ class Parser(object):
 		if len(read) == 1:
 			return read[0]
 		return read
-	
+
 	def string(self, offset):
 		if self.filedata is None:
 			return None
@@ -55,7 +55,7 @@ class Parser(object):
 	def blob(self, offset, filename=''):
 		length = self.read('L', offset)
 		data = self.filedata[offset+8 : offset+length+8]
-		
+
 		return Blob(data, filename)
 
 class Blob(object):
@@ -70,7 +70,7 @@ class Blob(object):
 			f = open(filename, 'wb')
 			f.write(self.data)
 			f.close()
-		
+
 class Card(object):
 	number = None
 	native_title = ''
@@ -100,14 +100,14 @@ class Card(object):
 			['native_audio', 2048],
 			['image', 4096]
 		]
-		
+
 		self.number = parser.read('L', data_pointer +4)
 		data_pointer = data_pointer + 8
 		for attr in attributes:
 			if card_attributes & attr[1]:
 				data_address = parser.read('L', data_pointer)
 				data = None
-				
+
 				if attr[0] == 'foreign_audio':
 					data = parser.blob(data_address)
 				elif attr[0] == 'native_audio':
@@ -116,9 +116,9 @@ class Card(object):
 					data = parser.blob(data_address)
 				else:
 					data = parser.string(data_address)
-				
+
 				setattr(self, attr[0], data)
-				
+
 				data_pointer = data_pointer + 4
 
 		self.valid = True
@@ -145,22 +145,22 @@ class Card(object):
 			'native_audio' : '',
 			'image' : ''
 		}
-		
+
 		if isinstance(self.foreign_audio, Blob):
 			fn = 'card' + cardnum + '_foreign.ogg'
 			self.foreign_audio.write(os.path.join(tofolder, fn))
 			write['foreign_audio'] = '<a class="audio" href="' + fn + '">(o)</a>'
-			
+
 		if isinstance(self.native_audio, Blob):
 			fn = 'card' + cardnum + '_native.ogg'
 			self.native_audio.write(os.path.join(tofolder, fn))
 			write['native_audio'] = '<a class="audio" href="' + fn + '">(o)</a>'
-			
+
 		if isinstance(self.image, Blob):
 			fn = 'card' + cardnum + '_image.jpg'
 			self.image.write(os.path.join(tofolder, fn))
 			write['image'] = '<img class="image" src="' + fn + '"/>'
-		
+
 		src	= '\
 	<div class="card">\n\
 		<p class="num">#%(number)s</p>\n\
@@ -175,9 +175,9 @@ class Card(object):
 		%(native_alt_answer)s\n\
 	</div>\n\
 				\n' %write
-		
+
 		return src
-		
+
 class Deck(object):
 	title = ''
 	description = ''
@@ -187,7 +187,7 @@ class Deck(object):
 	copyright_url = ''
 	creation_date = ''
 	app_creator_name = ''
-	
+
 	def __init__(self, filename):
 		self.valid = False
 		self.cards = []
@@ -198,7 +198,7 @@ class Deck(object):
 		self.valid = False
 		self.data = {}
 		self.cards = []
-		
+
 		caret = None
 		# find the initial caret position - this changes between files for some reason - search for the "Cards" string
 		for i in range(3):
@@ -206,14 +206,14 @@ class Deck(object):
 			if ''.join(self.parser.read('sssss', addr)) == 'Cards':
 				caret = addr + 32
 				break
-		
+
 		if caret is None:
 			return
-		
+
 		deck_details_pointer = self.parser.read('L', 92)
 		card_count = self.parser.read('L', caret +4)
 		next_card = self.parser.read('L', caret +16)
-		
+
 		# read in all of the deck properties - name, creator, description, copyright etc
 		fields = {
 			'Name': 'title',
@@ -225,13 +225,13 @@ class Deck(object):
 			'CreationDate': 'creation_date',
 			'AppCreatorName': 'app_creator_name'
 		}
-		
+
 		while deck_details_pointer != 0:
 			detail_label = self.parser.plain_fixed_string(deck_details_pointer + 4)
 			if detail_label in fields:
 				detail_string = ''
 				detail_data = self.parser.read('L', deck_details_pointer + 40)
-			 
+
 				if detail_label == 'CreationDate':
 					# not a pointer, this is a timestamp
 					creation_date = datetime.fromtimestamp(detail_data)
@@ -242,22 +242,22 @@ class Deck(object):
 					detail_string = str(detail_data)
 				else:
 					detail_string = self.parser.string(detail_data)
-				
+
 				# set this property on the Deck object
 				setattr(self, fields[detail_label], detail_string)
-				
+
 			# move to the next attribute
 			deck_details_pointer = self.parser.read('L', deck_details_pointer)
-		
+
 		self.valid = True
-		
+
 		# read in all of the cards
 		while (next_card != 0):
 			next_card, card_num, boundary, card_data_pointer, card_attributes = self.parser.read('LLLLL', next_card)
 			card = Card(self.parser, card_data_pointer, card_attributes)
 			if card.valid:
 				self.cards.append(card)
-		
+
 		return self.valid
 
 	def html(self, tofolder):
@@ -280,9 +280,9 @@ class Deck(object):
 
 		for card in self.cards:
 			html = html + card.html(tofolder)
-			
+
 		html = html + '</body></html>'
-		
+
 		fn = os.path.join(tofolder, 'cards.html')
 		f = codecs.open(fn, encoding='utf-8', mode='w')
 		f.write(html)
@@ -294,9 +294,9 @@ if __name__ == "__main__":
 		sys.exit()
 
 	SCRIPT_DIR = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-	OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'output')
-	
+	OUTPUT_DIR = os.path.join(SCRIPT_DIR, sys.argv[1].split('.b4u')[0])
+
 	d = Deck(sys.argv[1])
 	d.html(OUTPUT_DIR)
 
- 
+
